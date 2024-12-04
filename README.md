@@ -10,4 +10,4 @@ The app:
 - Chat completions by [Llama3.1-70b](https://huggingface.co/meta-llama/Llama-3.1-70B) hosted by [Clarin](https://clarin-pl.eu/)
 - Deployed with [Streamlit](https://streamlit.io/)
 
-![image](app/images/app-screenshot.png){width=800}
+![image](app/images/app-screenshot.png)
