@@ -3,4 +3,5 @@
 data/
 .env
 .ipynb_checkpoints/
+db/
 venv/
