@@ -2,9 +2,8 @@ import os
 import requests
 import streamlit as st
 import chromadb
-from langchain.vectorstores import FAISS, Chroma
+from langchain.vectorstores import Chroma
 from langchain.embeddings import OpenAIEmbeddings
-from langchain_community.docstore.in_memory import InMemoryDocstore
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -30,8 +29,13 @@ def initialize_vector_store():
     return vector_store
 
 
-def get_top_docs(vector_store, query, k=6):
-    return vector_store.similarity_search(query, k=k)
+def get_top_docs_mmr(vector_store, query, k=6, fetch_k=20, lambda_mult=0.5):
+    return vector_store.max_marginal_relevance_search(
+        query,
+        k=k,
+        fetch_k=fetch_k,
+        lambda_mult=lambda_mult
+    )
 
 
 def get_llm_response(question):
@@ -46,7 +50,8 @@ def get_llm_response(question):
                 "role": "user",
                 "content": question
             }
-        ]
+        ],
+        "temperature": 0.3
     }
     response = requests.post(CLARIN_CHAT_ENDPOINT, headers=headers, json=data)
     
@@ -57,31 +62,28 @@ def get_llm_response(question):
         print("Response content:", response.text)
         return None
 
+def main():
+    vector_store = initialize_vector_store()
+    st.image("images/HUBLAB_banner.jpg", width=1000)
+    use_rag = st.toggle("Use RAG", value=True)
+    user_input = st.text_input("Ask a question about Dr. Huberman's teachings:", key="user_input")
 
-def generate_rag_response(vector_store, query):
-    top_docs = get_top_docs(vector_store, query)
-    context = "\n\n".join([doc.page_content for doc in top_docs])
-    query = f"{RAG_PROMPT}\nRetrieved information:\n {context}\n\nQuestion: {query}"
-    return get_llm_response(query)
+    if user_input:
+        if use_rag:
+            with st.spinner("Searching Huberman Lab knowledge base..."):
+                retrieved_docs = get_top_docs_mmr(vector_store, user_input)
+                context = "\n\n".join([doc.page_content for doc in retrieved_docs])
+                
+            with st.spinner("Generating response..."):
+                query = f"{RAG_PROMPT}\nRetrieved information:\n {context}\n\nQuestion: {user_input}"
+                response_text = get_llm_response(query)
+                response = response_text['choices'][0]['message']['content']
+        else:
+            with st.spinner("Generating response..."):
+                response_text = get_llm_response(user_input)
+                response = response_text['choices'][0]['message']['content']
 
+        st.write(response)
 
-vector_store = initialize_vector_store()
-st.image("images/HUBLAB_banner.jpg", width=1000)
-use_rag = st.toggle("Use RAG", value=True)
-user_input = st.text_input("Ask a question about Dr. Huberman's teachings:", key="user_input")
-
-if user_input:
-    if use_rag:
-        with st.spinner("Searching Huberman Lab knowledge base..."):
-            retrieved_docs = get_top_docs(vector_store, user_input)
-            context = "\n\n".join([doc.page_content for doc in retrieved_docs])
-
-        with st.spinner("Generating response..."):
-            response_text = generate_rag_response(vector_store, user_input)
-            response = response_text['choices'][0]['message']['content']
-    else:
-        with st.spinner("Generating response..."):
-            response_text = get_llm_response(user_input)
-            response = response_text['choices'][0]['message']['content']
-
-    st.write(response)
+if __name__ == "__main__":
+    main()
