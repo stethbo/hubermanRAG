@@ -2,6 +2,16 @@
 */.DS_Store
 data/
 .env
+backend/.env
 .ipynb_checkpoints/
 db/
 venv/
+__pycache__/
+
+# project specific
+hubermanrag-firebase-adminsdk-fbsvc-1fb326ddbd.json
+/app/firebase_config.py
+
+backend/hubermanrag-firebase-adminsdk-fbsvc-1fb326ddbd.json
+backend/firebase_config.py
+backend/config.py
