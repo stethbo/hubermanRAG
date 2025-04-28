@@ -5,6 +5,7 @@ data/
 .ipynb_checkpoints/
 db/
 venv/
+__pycache__/
 
 # project specific
 hubermanrag-firebase-adminsdk-fbsvc-1fb326ddbd.json

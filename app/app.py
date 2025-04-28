@@ -2,11 +2,13 @@ import os
 import requests
 import streamlit as st
 import chromadb
+from openai import AzureOpenAI
 import pyrebase
+import firebase_admin
+from firebase_admin import credentials, firestore
 from langchain.vectorstores import Chroma
 from langchain.embeddings import OpenAIEmbeddings
-from app.firebase_config import firebase_config
-from firebase_admin import firestore
+from firebase_config import firebase_config
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -14,19 +16,41 @@ load_dotenv()
 # Initialize Firebase
 firebase = pyrebase.initialize_app(firebase_config)
 auth = firebase.auth()
+
+# Initialize Firebase Admin SDK (for Firestore)
+try:
+    app = firebase_admin.get_app()
+except ValueError:
+    # Path to your service account key JSON file - this provides access to all Firebase services
+    cred = credentials.Certificate("hubermanrag-firebase-adminsdk-fbsvc-1fb326ddbd.json")
+    app = firebase_admin.initialize_app(cred)
+
+# Now get Firestore client
 db = firestore.client()
 
 # Streamlit session state for user
 if "user" not in st.session_state:
     st.session_state.user = None
 
-TOKEN = os.getenv("CLARIN_TOKEN")
-CLARIN_CHAT_ENDPOINT = "https://services.clarin-pl.eu/api/v1/oapi/chat/completions"
-MODEL_ID = "llama3.1"
+
 PATH_TO_DB = "../db/chroma"
 RAG_PROMPT = "You are an advanced AI assistant using retrieval-augmented generation to provide detailed and accurate responses. \
 Use the following pieces of retrieved context from Andrew Huberman's teachings to answer the question. \
 If you don't know the answer, say that you don't know.\n\n"
+
+# setting up LLM
+ENDPOINT = "https://26035-ma0waj70-eastus2.cognitiveservices.azure.com/"
+MODEL_NAME = "gpt-4o"
+DEPLOYMENT = "gpt-4o"
+SUBSCRIPTION_KEY = os.getenv("AZURE_API_KEY")
+API_VERSION = "2024-12-01-preview"
+
+llm_client = AzureOpenAI(
+    api_version=API_VERSION,
+    azure_endpoint=ENDPOINT,
+    api_key=SUBSCRIPTION_KEY,
+)
+
 
 
 def initialize_vector_store():
@@ -49,29 +73,26 @@ def get_top_docs_mmr(vector_store, query, k=6, fetch_k=20, lambda_mult=0.5):
     )
 
 
-def get_llm_response(question):
-    headers = {
-        "Authorization": f"Bearer {TOKEN}",
-        "Content-Type": "application/json"
-    }
-    data = {
-        "model": MODEL_ID,
-        "messages": [
+def get_llm_response(question) -> str:
+    response = llm_client.chat.completions.create(
+        messages=[
+            {
+                "role": "system",
+                "content": "You are a helpful assistant.",
+            },
             {
                 "role": "user",
-                "content": question
+                "content": question,
             }
         ],
-        "temperature": 0.3
-    }
-    response = requests.post(CLARIN_CHAT_ENDPOINT, headers=headers, json=data)
+        max_tokens=4096,
+        temperature=1.0,
+        top_p=1.0,
+        model=DEPLOYMENT
+    )
     
-    if response.status_code == 200:
-        return response.json()
-    else:
-        print(f"Failed to fetch data. Status code: {response.status_code}")
-        print("Response content:", response.text)
-        return None
+    return response.choices[0].message.content
+
 
 def login_signup():
     st.sidebar.title("Authentication")
@@ -107,7 +128,7 @@ def main():
         st.warning("Please log in to continue.")
         return
 
-    st.image("images/HUBLAB_banner.jpg", width=1000)
+    st.image("app/images/HUBLAB_banner.jpg", width=1000)
     use_rag = st.toggle("Use RAG", value=True)
     
     # Get chat history from Firestore
@@ -140,12 +161,10 @@ def main():
                 
                 with st.spinner("Generating response..."):
                     query = f"{RAG_PROMPT}\nRetrieved information:\n {context}\n\nQuestion: {user_input}"
-                    response_text = get_llm_response(query)
-                    response = response_text['choices'][0]['message']['content']
+                    response = get_llm_response(query)
             else:
                 with st.spinner("Generating response..."):
-                    response_text = get_llm_response(user_input)
-                    response = response_text['choices'][0]['message']['content']
+                    response = get_llm_response(user_input)
 
             st.write(response)
             
