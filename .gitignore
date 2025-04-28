@@ -5,3 +5,7 @@ data/
 .ipynb_checkpoints/
 db/
 venv/
+
+# project specific
+hubermanrag-firebase-adminsdk-fbsvc-1fb326ddbd.json
+/app/firebase_config.py
