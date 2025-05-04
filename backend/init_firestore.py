@@ -3,9 +3,11 @@ from firebase_admin import credentials, firestore
 import sys
 import uuid
 import os
-import importlib.util
+from dotenv import load_dotenv
 
-from backend.config import firebase_config
+load_dotenv()
+
+from config import firebase_config
 
 # Add the root directory to Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -19,7 +21,7 @@ def initialize_firestore():
         try:
             app = firebase_admin.get_app()
         except ValueError:
-            cred = credentials.Certificate("hubermanrag-firebase-adminsdk-fbsvc-1fb326ddbd.json")
+            cred = credentials.Certificate(os.getenv("FIREBASE_CREDENTIALS"))
             app = firebase_admin.initialize_app(cred)
         
         # Get Firestore client

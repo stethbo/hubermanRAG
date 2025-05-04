@@ -1,9 +1,13 @@
 import os
 import chromadb
 from openai import AzureOpenAI
-from langchain.vectorstores import Chroma
-from langchain.embeddings import OpenAIEmbeddings
+from langchain_chroma import Chroma
+from langchain_openai import OpenAIEmbeddings
 from dotenv import load_dotenv
+import tiktoken
+
+# Preload the cl100k_base tokenizer
+_ = tiktoken.get_encoding("cl100k_base")
 
 load_dotenv()
 
@@ -13,7 +17,7 @@ Use the following pieces of retrieved context from Andrew Huberman's teachings t
 If you don't know the answer, say that you don't know.\n\n"
 
 # setting up LLM
-ENDPOINT = "https://26035-ma0waj70-eastus2.cognitiveservices.azure.com/"
+ENDPOINT = os.getenv("AZURE_ENDPOINT")
 MODEL_NAME = "gpt-4o-mini"
 DEPLOYMENT = "gpt-4o-mini"
 SUBSCRIPTION_KEY = os.getenv("AZURE_API_KEY")
@@ -30,7 +34,10 @@ class RAGService:
         self.vector_store = self.initialize_vector_store()
 
     def initialize_vector_store(self):
-        embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
+        embeddings = OpenAIEmbeddings(
+            model="text-embedding-3-large",
+            tiktoken_model_name="cl100k_base"
+        )
         chroma_client = chromadb.PersistentClient(path=PATH_TO_DB)
         vector_store = Chroma(
             embedding_function=embeddings,

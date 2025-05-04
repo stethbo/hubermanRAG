@@ -31,6 +31,7 @@ async def login(user_credentials: UserCredentials):
             "email": user_credentials.email
         }
     except Exception as e:
+        print(e)
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
 @router.post("/google-login", response_model=TokenResponse)

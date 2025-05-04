@@ -8,6 +8,9 @@ db/
 venv/
 __pycache__/
 
+*firebase*adminsdk*.json
+*service-account*.json
+
 # project specific
 hubermanrag-firebase-adminsdk-fbsvc-1fb326ddbd.json
 /app/firebase_config.py

@@ -1,8 +1,12 @@
+import os
+from dotenv import load_dotenv
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
 import pyrebase
 from config import firebase_config
 from typing import List, Dict, Any
+
+load_dotenv()
 
 # Initialize Firebase with Pyrebase (for auth)
 firebase = pyrebase.initialize_app(firebase_config)
@@ -13,7 +17,7 @@ try:
     app = firebase_admin.get_app()
 except ValueError:
     # Path to your service account key JSON file
-    cred = credentials.Certificate("hubermanrag-firebase-adminsdk-fbsvc-1fb326ddbd.json")
+    cred = credentials.Certificate(os.getenv("FIREBASE_CREDENTIALS"))
     app = firebase_admin.initialize_app(cred)
 
 # Get Firestore client
@@ -41,7 +45,7 @@ class FirebaseService:
     
     def get_chat_history(self, user_id) -> List[Dict[str, str]]:
         """Get chat history for a user with validated message format"""
-        chat_history = self.db.collection("chats").document(user_id).get()
+        chat_history = self.db.collection("history").document(user_id).get()
         if chat_history.exists:
             messages = chat_history.to_dict().get("messages", [])
             # Validate each message has the required fields
@@ -54,7 +58,7 @@ class FirebaseService:
         if not self._is_valid_message(message):
             raise ValueError("Invalid message format. Must have 'role' and 'content' fields")
             
-        chat_ref = self.db.collection("chats").document(user_id)
+        chat_ref = self.db.collection("history").document(user_id)
         chat_history = self.get_chat_history(user_id)
         chat_history.append(message)
         chat_ref.set({"messages": chat_history})

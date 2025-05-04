@@ -32,7 +32,22 @@ async def send_message(request: ChatRequest, current_user: dict = Depends(get_cu
         
         # Save user message
         user_message = {"role": "user", "content": request.message}
-        firebase_service.save_message(user_id, user_message)
+        
+        try:
+            # Try to save the user message, which might fail due to permissions
+            firebase_service.save_message(user_id, user_message)
+        except Exception as firebase_error:
+            # Check if it's a permissions error
+            if "403" in str(firebase_error) or "permission" in str(firebase_error).lower():
+                raise HTTPException(
+                    status_code=403, 
+                    detail="Firebase permission error. Possible causes: 1) Firestore security rules are too restrictive, "
+                           "2) The service account lacks proper permissions, or "
+                           "3) The 'chats' collection doesn't exist yet."
+                )
+            else:
+                # Re-raise if it's not a permissions error
+                raise firebase_error
         
         # Generate response
         if request.use_rag:
@@ -42,7 +57,17 @@ async def send_message(request: ChatRequest, current_user: dict = Depends(get_cu
         
         # Save assistant response
         assistant_message = {"role": "assistant", "content": response_text}
-        chat_history = firebase_service.save_message(user_id, assistant_message)
+        
+        try:
+            chat_history = firebase_service.save_message(user_id, assistant_message)
+        except Exception as firebase_error:
+            # If we can't save the assistant message, still return the response
+            # but with a warning and without updated chat history
+            print(f"Warning: Could not save assistant message: {str(firebase_error)}")
+            return {
+                "response": response_text + "\n\nNote: Your message history could not be saved due to a database permission issue.",
+                "chat_history": [user_message, assistant_message]  # Return just the current conversation
+            }
         
         # Ensure each message in chat_history has role and content fields
         validated_history = []
@@ -56,4 +81,5 @@ async def send_message(request: ChatRequest, current_user: dict = Depends(get_cu
             "chat_history": validated_history
         }
     except Exception as e:
+        print(e)
         raise HTTPException(status_code=500, detail=str(e)) 
